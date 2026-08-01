@@ -2,6 +2,7 @@
 
 import logging
 import os
+from typing import List, Dict, Any
 from langchain.tools import tool
 from tavily import TavilyClient
 from dotenv import load_dotenv
@@ -15,6 +16,40 @@ API_KEY = os.getenv("TAVILY_API_KEY")
 tavily_client = TavilyClient(api_key=API_KEY) if API_KEY else None
 
 
+def execute_raw_search(query: str, max_results: int = TAVILY_MAX_RESULTS) -> List[Dict[str, str]]:
+    """Execute raw Tavily search returning a list of dicts with title, url, and snippet."""
+    if not tavily_client:
+        logger.error("[Tavily] TAVILY_API_KEY environment variable is not set.")
+        return []
+
+    logger.info(f"[Tavily] Executing raw search query: '{query}'")
+
+    try:
+        results = tavily_client.search(
+            query=query,
+            max_results=max_results,
+            search_depth="advanced",
+        )
+        raw_results = results.get("results", [])
+        logger.info(f"[Tavily] Raw results returned: {len(raw_results)} for query '{query}'")
+
+        items = []
+        for r in raw_results:
+            title = r.get("title", "No Title").strip()
+            url = r.get("url", "").strip()
+            content = r.get("content", "").strip()[:SEARCH_SNIPPET_MAX_LEN]
+            if url:
+                items.append({
+                    "title": title,
+                    "url": url,
+                    "snippet": content,
+                })
+        return items
+    except Exception as e:
+        logger.error(f"[Tavily] Search failed for query '{query}': {e}")
+        return []
+
+
 @tool
 def web_search(query: str) -> str: 
     """Search the web for recent and reliable information on a topic. Returns Titles, URLs and Snippets.
@@ -25,40 +60,12 @@ def web_search(query: str) -> str:
     Returns:
         Formatted string containing search result titles, URLs, and text snippets.
     """
-    if not tavily_client:
-        logger.error("[Tavily] TAVILY_API_KEY environment variable is not set.")
-        return "Search failed: TAVILY_API_KEY is missing."
+    raw = execute_raw_search(query)
+    if not raw:
+        return "No relevant search results found."
 
-    logger.info(f"[Tavily] Executing search query: '{query}'")
+    out = []
+    for r in raw:
+        out.append(f"Title: {r['title']}\nURL: {r['url']}\nSnippet: {r['snippet']}")
 
-    try:
-        # Use advanced search depth for rich real-time context
-        results = tavily_client.search(
-            query=query,
-            max_results=TAVILY_MAX_RESULTS,
-            search_depth="advanced",
-        )
-        
-        raw_results = results.get("results", [])
-        logger.info(f"[Tavily] Raw results returned: {len(raw_results)}")
-
-        if not raw_results:
-            logger.warning(f"[Tavily] No search results returned for query: '{query}'")
-            return "No relevant search results found."
-
-        urls_found = [r.get("url", "") for r in raw_results if r.get("url")]
-        logger.info(f"[Tavily] URLs retrieved: {urls_found}")
-
-        out = []
-        for r in raw_results:
-            title = r.get("title", "No Title")
-            url = r.get("url", "")
-            content = r.get("content", "")[:SEARCH_SNIPPET_MAX_LEN]
-            out.append(f"Title: {title}\nURL: {url}\nSnippet: {content}")
-
-        formatted_output = "\n----\n".join(out)
-        logger.info(f"[Tavily] Formatted search payload length: {len(formatted_output)} chars")
-        return formatted_output
-    except Exception as e:
-        logger.error(f"[Tavily] Search failed for query '{query}': {e}")
-        return f"Failed to execute web search: {str(e)}"
+    return "\n----\n".join(out)

@@ -24,4 +24,5 @@ class GeminiProvider(BaseProvider):
             google_api_key=api_key,
             temperature=self.temperature,
             request_timeout=self.timeout,
+            max_retries=1,
         )
