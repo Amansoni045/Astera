@@ -1,8 +1,23 @@
 """Configuration module for Astera backend.
 
 Contains all global constant values including provider priority, model settings,
-Tavily search parameters, and scraper configurations.
+Tavily search parameters, scraper configurations, and production CORS origins.
 """
+
+import os
+
+# Production CORS Allowed Origins
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+]
+
+# Parse extra custom origins from ALLOWED_ORIGINS env var (comma-separated)
+extra_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+ALLOWED_ORIGINS = list(
+    set(DEFAULT_ALLOWED_ORIGINS + [o.strip() for o in extra_origins if o.strip()])
+)
 
 # Multi-Provider Configuration
 PROVIDER_PRIORITY = ["groq", "cerebras", "gemini", "mistral", "openrouter"]

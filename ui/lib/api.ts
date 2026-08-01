@@ -1,10 +1,14 @@
 import type { ResearchResult } from "./types";
 
 function getApiBase(): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (!envUrl) return "http://localhost:8000";
-  const withProtocol = /^https?:\/\//i.test(envUrl) ? envUrl : `https://${envUrl}`;
-  return withProtocol.replace(/\/+$/, "");
+  if (typeof window !== "undefined") {
+    const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+    if (envUrl) {
+      const withProtocol = /^https?:\/\//i.test(envUrl) ? envUrl : `https://${envUrl}`;
+      return withProtocol.replace(/\/+$/, "");
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "") || "http://localhost:8000";
 }
 
 const API_BASE = getApiBase();
@@ -19,28 +23,42 @@ export class ApiError extends Error {
   }
 }
 
-export async function researchTopic(topic: string): Promise<ResearchResult> {
-  const response = await fetch(`${API_BASE}/research`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ topic }),
-  });
+export async function researchTopic(topic: string, timeoutMs = 60000): Promise<ResearchResult> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    const raw = await response.text().catch(() => "Unknown error");
-    let detail = raw;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object" && "detail" in parsed) {
-        detail = typeof parsed.detail === "string" ? parsed.detail : JSON.stringify(parsed.detail);
+  try {
+    const response = await fetch(`${API_BASE}/research`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const raw = await response.text().catch(() => "Unknown error");
+      let detail = raw;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && "detail" in parsed) {
+          detail = typeof parsed.detail === "string" ? parsed.detail : JSON.stringify(parsed.detail);
+        }
+      } catch {
+        // Not JSON, use raw text
       }
-    } catch {
-      // Not JSON, use raw text
+      throw new ApiError(detail, response.status);
     }
-    throw new ApiError(detail, response.status);
-  }
 
-  return response.json() as Promise<ResearchResult>;
+    return (await response.json()) as ResearchResult;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === "AbortError") {
+      throw new ApiError("Request timed out. Please try again.", 408);
+    }
+    throw err;
+  }
 }
 
 export function streamResearchTopic(
@@ -49,7 +67,7 @@ export function streamResearchTopic(
   onError: (errMessage: string) => void,
 ): () => void {
   const url = `${API_BASE}/research/stream?topic=${encodeURIComponent(topic)}`;
-  const eventSource = new EventSource(url);
+  let eventSource: EventSource | null = new EventSource(url);
 
   const events = [
     "search_started",
@@ -65,7 +83,7 @@ export function streamResearchTopic(
   ];
 
   events.forEach((eventName) => {
-    eventSource.addEventListener(eventName, (e: MessageEvent) => {
+    eventSource?.addEventListener(eventName, (e: MessageEvent) => {
       try {
         const parsed = JSON.parse(e.data);
         onEvent(eventName, parsed);
@@ -76,9 +94,17 @@ export function streamResearchTopic(
   });
 
   eventSource.onerror = () => {
-    onError("Unable to connect to the backend research service.");
-    eventSource.close();
+    onError("Unable to connect to the backend research service. Please verify server status.");
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
   };
 
-  return () => eventSource.close();
+  return () => {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+  };
 }
