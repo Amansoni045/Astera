@@ -2,11 +2,10 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, Clock, X, RefreshCw } from "lucide-react";
+import { AlertCircle, X, RefreshCw } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { SearchInput } from "@/components/SearchInput";
-import { ProgressTracker } from "@/components/ProgressTracker";
-import { ReportSkeleton } from "@/components/SkeletonBlock";
+import { ResearchProgress } from "@/components/ResearchProgress";
 import { ReportView } from "@/components/ReportView";
 import { useResearch } from "@/hooks/useResearch";
 import { getHistory } from "@/lib/history";
@@ -14,7 +13,7 @@ import type { HistoryEntry } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export default function WorkspacePage() {
-  const { stage, result, error, isRateLimitError, run, reset } = useResearch();
+  const { stage, completedStages, result, error, run, reset } = useResearch();
   const [activeHistoryId, setActiveHistoryId] = useState<string | undefined>();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
@@ -116,7 +115,7 @@ export default function WorkspacePage() {
               </motion.div>
             )}
 
-            {/* In-progress state */}
+            {/* In-progress state using ResearchProgress component with real SSE events */}
             {isActive && (
               <motion.div
                 key="progress"
@@ -126,25 +125,12 @@ export default function WorkspacePage() {
                 transition={{ duration: 0.4, ease: "easeOut" }}
                 className="flex flex-col gap-10"
               >
-                {/* Compact search bar at top */}
                 <SearchInput onSubmit={handleSubmit} disabled />
-
-                {/* Two-column layout: progress left, skeleton right */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-10">
-                  <div className="md:col-span-2">
-                    <p className="mb-6 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
-                      Working on it
-                    </p>
-                    <ProgressTracker stage={stage} />
-                  </div>
-                  <div className="md:col-span-3">
-                    <ReportSkeleton />
-                  </div>
-                </div>
+                <ResearchProgress stage={stage} completedStages={completedStages} />
               </motion.div>
             )}
 
-            {/* Error state */}
+            {/* Error state — natural human language with Retry button */}
             {isError && (
               <motion.div
                 key="error"
@@ -156,73 +142,44 @@ export default function WorkspacePage() {
               >
                 <SearchInput onSubmit={handleSubmit} />
 
-                {isRateLimitError ? (
-                  /* Rate limit banner */
-                  <div
-                    role="alert"
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/30 p-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <Clock
-                        className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400"
-                        aria-hidden="true"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                          AI Provider Rate Limit Reached
-                        </p>
-                        <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                          {error}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
-                      {lastTopic && (
-                        <button
-                          onClick={handleRetry}
-                          className="flex items-center gap-1.5 rounded-lg border border-amber-300 dark:border-amber-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-zinc-800 transition-colors"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                          Retry
-                        </button>
-                      )}
-                      <button
-                        onClick={handleNewResearch}
-                        className="p-1 text-amber-500 hover:text-amber-700 focus-visible:outline-none"
-                        aria-label="Dismiss error"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Generic error banner */
-                  <div
-                    role="alert"
-                    className="flex items-start gap-3 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/30 p-4"
-                  >
+                <div
+                  role="alert"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-5 shadow-sm"
+                >
+                  <div className="flex items-start gap-3">
                     <AlertCircle
-                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500"
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-zinc-500 dark:text-zinc-400"
                       aria-hidden="true"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-red-700 dark:text-red-400">
-                        Something went wrong
+                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        We couldn't complete this research right now.
                       </p>
-                      <p className="mt-0.5 text-xs text-red-600 dark:text-red-500 leading-relaxed">
-                        {error}
+                      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        Please try again in a few moments.
                       </p>
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    {lastTopic && (
+                      <button
+                        onClick={handleRetry}
+                        className="flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        <span>Try again</span>
+                      </button>
+                    )}
                     <button
                       onClick={handleNewResearch}
-                      className="text-red-400 hover:text-red-600 focus-visible:outline-none"
+                      className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 focus-visible:outline-none rounded-lg"
                       aria-label="Dismiss error"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                )}
+                </div>
               </motion.div>
             )}
 

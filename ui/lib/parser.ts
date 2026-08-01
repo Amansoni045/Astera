@@ -1,11 +1,24 @@
 import type { ParsedReport, ReportSection, Source } from "./types";
 
 /**
- * Extracts a quality score like "8/10" from the critic feedback string.
+ * Extracts a quality score like "8/10" or "9/10" from the critic feedback string.
  */
 function extractScore(feedback: string): string | null {
-  const match = feedback.match(/Score:\s*(\d+\/10)/i);
-  return match ? match[1] : null;
+  if (!feedback) return null;
+
+  // Match formats like "Score: 8/10", "Score: 9.5/10", "Score 8/10"
+  const match = feedback.match(/(?:Score|Rating)?\s*:?\s*(\d+(?:\.\d+)?)\s*\/\s*10/i);
+  if (match) {
+    return `${match[1]}/10`;
+  }
+
+  // Fallback for "Score: 8" or "8 out of 10"
+  const outOfMatch = feedback.match(/(\d+(?:\.\d+)?)\s*(?:out of 10|\/10)/i);
+  if (outOfMatch) {
+    return `${outOfMatch[1]}/10`;
+  }
+
+  return null;
 }
 
 /**

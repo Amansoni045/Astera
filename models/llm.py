@@ -1,26 +1,26 @@
-"""LLM Provider module for Astera using Groq."""
+"""Multi-provider LLM interface module for Astera."""
 
 import logging
 from typing import Optional
-from langchain_groq import ChatGroq
 from dotenv import load_dotenv
-from config import MODEL_NAME, MODEL_TEMPERATURE
+from models.provider_manager import MultiProviderChatModel, ProviderManager
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-_llm_instance: Optional[ChatGroq] = None
+_singleton_model: Optional[MultiProviderChatModel] = None
 
 
-def get_llm() -> ChatGroq:
-    """Retrieves or initializes the shared ChatGroq LLM singleton instance.
+def get_llm() -> MultiProviderChatModel:
+    """Retrieves or initializes the shared MultiProviderChatModel instance.
 
     Returns:
-        ChatGroq: Configured LLM client instance.
+        MultiProviderChatModel: Chat model supporting priority failover across free-tier providers.
     """
-    global _llm_instance
-    if _llm_instance is None:
-        logger.info(f"Initializing ChatGroq LLM (model={MODEL_NAME}, temp={MODEL_TEMPERATURE})")
-        _llm_instance = ChatGroq(model=MODEL_NAME, temperature=MODEL_TEMPERATURE)
-    return _llm_instance
+    global _singleton_model
+    if _singleton_model is None:
+        logger.info("Initializing Astera Multi-Provider LLM architecture.")
+        manager = ProviderManager()
+        _singleton_model = MultiProviderChatModel(manager=manager)
+    return _singleton_model

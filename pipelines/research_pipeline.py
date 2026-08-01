@@ -1,6 +1,7 @@
 """Research Pipeline execution module for Astera."""
 
 import logging
+from typing import Dict, Any, Generator
 from agents.search_agent import build_search_agent
 from agents.reader_agent import build_reader_agent
 from chains.writer_chain import writer_chain
@@ -10,20 +11,18 @@ from state import ResearchState
 logger = logging.getLogger(__name__)
 
 
-def run_research_pipeline(topic: str) -> ResearchState:
-    """Executes the multi-agent research pipeline end-to-end.
+def stream_research_pipeline(topic: str) -> Generator[Dict[str, Any], None, None]:
+    """Yields real progress events and results as each stage executes.
 
-    Pipeline stages:
-        1. Search: Web search agent gathers initial topic information.
-        2. Scrape: Reader agent scrapes relevant web page content.
-        3. Write: Writer chain generates structured report from research.
-        4. Critic: Critic chain reviews and evaluates the draft report.
+    Yielded Event Structure:
+        {"event": "<event_name>", "data": <event_payload>}
 
-    Args:
-        topic: The user-specified research topic string.
-
-    Returns:
-        ResearchState: Dict containing topic, search_results, scraped_content, report, feedback.
+    Events emitted:
+        - search_started, search_completed
+        - reader_started, reader_completed
+        - writer_started, writer_completed
+        - critic_started, critic_completed
+        - finished (contains final ResearchState dict)
     """
     state: ResearchState = {
         "topic": topic,
@@ -34,10 +33,8 @@ def run_research_pipeline(topic: str) -> ResearchState:
     }
 
     # Step 1 - Search Agent
-    print("\n" + " =" * 50)
-    print("step 1 - search agent is working...")
-    print("=" * 50)
     logger.info(f"Step 1: Running Search Agent for topic '{topic}'")
+    yield {"event": "search_started", "data": {"stage": "searching"}}
 
     search_agent = build_search_agent()
     search_result = search_agent.invoke({
@@ -45,13 +42,11 @@ def run_research_pipeline(topic: str) -> ResearchState:
     })
 
     state["search_results"] = search_result["messages"][-1].content
-    print("\n search result ", state["search_results"])
+    yield {"event": "search_completed", "data": {"stage": "searching"}}
 
     # Step 2 - Reader Agent
-    print("\n" + " =" * 50)
-    print("step 2 - reader agent is scraping resources...")
-    print(" =" * 50)
     logger.info("Step 2: Running Reader Agent to scrape webpage content")
+    yield {"event": "reader_started", "data": {"stage": "reading"}}
 
     reader_agent = build_reader_agent()
     reader_result = reader_agent.invoke({
@@ -63,13 +58,11 @@ def run_research_pipeline(topic: str) -> ResearchState:
     })
 
     state["scraped_content"] = reader_result["messages"][-1].content
-    print("\nscraped content: \n", state["scraped_content"])
+    yield {"event": "reader_completed", "data": {"stage": "reading"}}
 
     # Step 3 - Writer Chain
-    print("\n" + " =" * 50)
-    print("step 3 - writer is drafting a report...")
-    print(" =" * 50)
     logger.info("Step 3: Running Writer Chain to draft report")
+    yield {"event": "writer_started", "data": {"stage": "writing"}}
 
     research_combined = (
         f"SEARCH RESULTS: \n {state['search_results']} \n\n"
@@ -82,23 +75,32 @@ def run_research_pipeline(topic: str) -> ResearchState:
     })
 
     state["report"] = writer_result
-    print("\n Writer Report\n", state["report"])
+    yield {"event": "writer_completed", "data": {"stage": "writing"}}
 
     # Step 4 - Critic Chain
-    print("\n" + "=" * 50)
-    print("step 4 - critic is reviewing the report...")
-    print("=" * 50)
     logger.info("Step 4: Running Critic Chain to review report")
+    yield {"event": "critic_started", "data": {"stage": "checking"}}
 
     critic_result = critic_chain.invoke({
         "report": writer_result
     })
 
     state["feedback"] = critic_result
-    print("\n Critic Feedback: ", state["feedback"])
+    yield {"event": "critic_completed", "data": {"stage": "checking"}}
 
     logger.info("Pipeline execution completed successfully.")
-    return state
+    yield {"event": "finished", "data": state}
+
+
+def run_research_pipeline(topic: str) -> ResearchState:
+    """Executes the multi-agent research pipeline synchronously and returns final state."""
+    final_state = None
+    for event in stream_research_pipeline(topic):
+        if event["event"] == "finished":
+            final_state = event["data"]
+    if final_state is None:
+        raise RuntimeError("Pipeline failed to produce a final result state.")
+    return final_state
 
 
 if __name__ == "__main__":

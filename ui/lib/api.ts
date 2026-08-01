@@ -35,3 +35,43 @@ export async function researchTopic(topic: string): Promise<ResearchResult> {
 
   return response.json() as Promise<ResearchResult>;
 }
+
+export function streamResearchTopic(
+  topic: string,
+  onEvent: (event: string, data: any) => void,
+  onError: (errMessage: string) => void,
+): () => void {
+  const url = `${API_BASE}/research/stream?topic=${encodeURIComponent(topic)}`;
+  const eventSource = new EventSource(url);
+
+  const events = [
+    "search_started",
+    "search_completed",
+    "reader_started",
+    "reader_completed",
+    "writer_started",
+    "writer_completed",
+    "critic_started",
+    "critic_completed",
+    "finished",
+    "error",
+  ];
+
+  events.forEach((eventName) => {
+    eventSource.addEventListener(eventName, (e: MessageEvent) => {
+      try {
+        const parsed = JSON.parse(e.data);
+        onEvent(eventName, parsed);
+      } catch {
+        onEvent(eventName, e.data);
+      }
+    });
+  });
+
+  eventSource.onerror = () => {
+    onError("Unable to connect to the backend research service.");
+    eventSource.close();
+  };
+
+  return () => eventSource.close();
+}
