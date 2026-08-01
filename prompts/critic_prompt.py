@@ -1,3 +1,5 @@
+"""Critic Prompt template definition."""
+
 from langchain_core.prompts import ChatPromptTemplate
 
 critic_prompt = ChatPromptTemplate.from_messages([

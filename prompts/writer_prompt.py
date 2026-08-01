@@ -1,3 +1,5 @@
+"""Writer Prompt template definition."""
+
 from langchain_core.prompts import ChatPromptTemplate
 
 writer_prompt = ChatPromptTemplate.from_messages([

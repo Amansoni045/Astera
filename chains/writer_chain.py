@@ -1,3 +1,5 @@
+"""Writer Chain module for research report generation."""
+
 from langchain_core.output_parsers import StrOutputParser
 from models.llm import get_llm
 from prompts.writer_prompt import writer_prompt

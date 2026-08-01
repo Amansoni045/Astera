@@ -1,3 +1,6 @@
+"""Tavily web search tool implementation for Astera."""
+
+import logging
 import os
 from langchain.tools import tool
 from tavily import TavilyClient
@@ -6,19 +9,42 @@ from config import TAVILY_MAX_RESULTS, SEARCH_SNIPPET_MAX_LEN
 
 load_dotenv()
 
-API_KEY = os.getenv("TAVILY_API_KEY")
+logger = logging.getLogger(__name__)
 
-tavily = TavilyClient(api_key=API_KEY)
+API_KEY = os.getenv("TAVILY_API_KEY")
+tavily_client = TavilyClient(api_key=API_KEY) if API_KEY else None
+
 
 @tool
 def web_search(query: str) -> str: 
-    """Search the web for recent and reliable information on a topic. Returns Titles, URLs and Snippets."""
+    """Search the web for recent and reliable information on a topic. Returns Titles, URLs and Snippets.
 
-    results = tavily.search(query=query, max_results=TAVILY_MAX_RESULTS) 
+    Args:
+        query: Search query string.
 
-    out = []
+    Returns:
+        Formatted string containing search result titles, URLs, and text snippets.
+    """
+    if not tavily_client:
+        logger.error("TAVILY_API_KEY environment variable is not set.")
+        return "Search failed: TAVILY_API_KEY is missing."
 
-    for r in results["results"]:
-        out.append(f"Title: {r['title']}\nURL: {r['url']}\nSnippet: {r['content'][:SEARCH_SNIPPET_MAX_LEN]}")
+    try:
+        results = tavily_client.search(query=query, max_results=TAVILY_MAX_RESULTS) 
+        
+        raw_results = results.get("results", [])
+        if not raw_results:
+            logger.warning(f"No search results returned for query: {query}")
+            return "No relevant search results found."
 
-    return "\n----\n".join(out)
+        out = []
+        for r in raw_results:
+            title = r.get("title", "No Title")
+            url = r.get("url", "")
+            content = r.get("content", "")[:SEARCH_SNIPPET_MAX_LEN]
+            out.append(f"Title: {title}\nURL: {url}\nSnippet: {content}")
+
+        return "\n----\n".join(out)
+    except Exception as e:
+        logger.error(f"Tavily search failed for query '{query}': {e}")
+        return f"Failed to execute web search: {str(e)}"
