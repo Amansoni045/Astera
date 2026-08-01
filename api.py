@@ -59,6 +59,13 @@ def research(request: ResearchRequest) -> ResearchResponse:
         raise HTTPException(status_code=500, detail=f"Research pipeline failed: {str(exc)}")
 
 
+@app.options("/research/stream")
+@app.options("/research")
+def cors_preflight():
+    """Explicit OPTIONS handler for cross-origin preflight requests."""
+    return {}
+
+
 @app.get("/research/stream")
 def research_stream(topic: str):
     """Stream real-time research pipeline progress events via Server-Sent Events (SSE)."""
@@ -83,6 +90,9 @@ def research_stream(topic: str):
         event_generator(),
         media_type="text/event-stream",
         headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",

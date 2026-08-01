@@ -1,6 +1,13 @@
 import type { ResearchResult } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+function getApiBase(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (!envUrl) return "http://localhost:8000";
+  const withProtocol = /^https?:\/\//i.test(envUrl) ? envUrl : `https://${envUrl}`;
+  return withProtocol.replace(/\/+$/, "");
+}
+
+const API_BASE = getApiBase();
 
 export class ApiError extends Error {
   constructor(
