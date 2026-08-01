@@ -1,27 +1,37 @@
-from agents import build_search_agent, build_reader_agent, writer_chain, critic_chain 
+from agents.search_agent import build_search_agent
+from agents.reader_agent import build_reader_agent
+from chains.writer_chain import writer_chain
+from chains.critic_chain import critic_chain
+from state import ResearchState
 
-def run_research_pipeline(topic: str) -> dict:
+def run_research_pipeline(topic: str) -> ResearchState:
 
-    state = {}
+    state: ResearchState = {
+        "topic": topic,
+        "search_results": "",
+        "scraped_content": "",
+        "report": "",
+        "feedback": ""
+    }
 
     #search agent working 
-    print("\n"+" =" * 50)
+    print("\n" + " =" * 50)
     print("step 1 - search agent is working...")
     print("=" * 50) 
 
     search_agent = build_search_agent()
     search_result = search_agent.invoke({
-        "messages" : [("user", f"Find recent, reliable and detailed information about: {topic}")]
+        "messages": [("user", f"Find recent, reliable and detailed information about: {topic}")]
     })
 
-    state["search_result"] = search_result["messages"][-1].content
+    state["search_results"] = search_result["messages"][-1].content
 
-    print("\n search result ",state["search_result"])
+    print("\n search result ", state["search_results"])
 
     #reader agent working 
-    print("\n" +" ="*50)
+    print("\n" + " =" * 50)
     print("step 2 - reader agent is scraping resources...")
-    print(" ="*50) 
+    print(" =" * 50) 
 
     reader_agent = build_reader_agent()
     reader_result = reader_agent.invoke({
@@ -32,18 +42,18 @@ def run_research_pipeline(topic: str) -> dict:
         )]
     })
 
-    state['scraped_content'] = reader_result['messages'][-1].content
+    state["scraped_content"] = reader_result["messages"][-1].content
 
-    print("\nscraped content: \n", state['scraped_content'])
+    print("\nscraped content: \n", state["scraped_content"])
 
     #writer chain 
-    print("\n" +" ="*50)
+    print("\n" + " =" * 50)
     print("step 3 - writer is drafting a report...")
-    print(" ="*50) 
+    print(" =" * 50) 
 
     research_combined = (
-        f"SEARCH RESULTS: \n {state["search_results"]} \n\n"
-        f"DETAILED SCRAPED CONTENT: \n {state["scraped_content"]}"
+        f"SEARCH RESULTS: \n {state['search_results']} \n\n"
+        f"DETAILED SCRAPED CONTENT: \n {state['scraped_content']}"
     )
 
     writer_result = writer_chain.invoke({
@@ -72,5 +82,5 @@ def run_research_pipeline(topic: str) -> dict:
 
 
 if __name__ == "__main__":
-    topic = input("What do you want to research about?")
+    topic = input("What do you want to research about? ")
     run_research_pipeline(topic)
