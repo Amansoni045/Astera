@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.75rem;
+    --accent: 238 84% 67%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+
+  /* Accessible focus — visible only on keyboard */
+  :focus-visible {
+    outline: 2px solid hsl(var(--accent));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: hsl(var(--accent) / 0.15);
+  }
+
+  /* Scrollbar (webkit) */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 99px;
+  }
+}
+
+@layer utilities {
+  .font-sans {
+    font-family: var(--font-geist), "Inter", system-ui, -apple-system, sans-serif;
+  }
+
+  .font-mono {
+    font-family: var(--font-geist-mono), "SF Mono", "Cascadia Code", monospace;
+  }
+}

@@ -39,3 +39,7 @@ colorama>=0.4.6
 
 # Optional Retry
 tenacity>=9.1.2
+
+# API Server (for UI integration)
+fastapi>=0.115.0
+uvicorn>=0.32.0

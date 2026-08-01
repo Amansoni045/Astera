@@ -5,7 +5,7 @@ and scraper configurations.
 """
 
 # LLM Configuration
-MODEL_NAME = "openai/gpt-oss-120b"
+MODEL_NAME = "llama-3.1-8b-instant"
 MODEL_TEMPERATURE = 0
 
 # Tavily Search Configuration
