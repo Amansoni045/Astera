@@ -25,6 +25,12 @@ app.add_middleware(
 )
 
 
+@app.get("/health")
+def health_check():
+    """Health check endpoint for Railway deployment."""
+    return {"status": "ok", "service": "Astera Backend"}
+
+
 class ResearchRequest(BaseModel):
     topic: str
 
