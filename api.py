@@ -154,7 +154,6 @@ def research_stream(topic: str, request: Request):
 if __name__ == "__main__":
     import os
     import uvicorn
-    # Force port 8000 to match Railway Public Networking domain target (Port 8000)
-    port = int(os.getenv("PORT", 8000)) if os.getenv("PORT") == "8000" else 8000
+    port = int(os.getenv("PORT", 8000))
     logger.info(f"Starting server on 0.0.0.0:{port}")
     uvicorn.run("api:app", host="0.0.0.0", port=port)
