@@ -33,7 +33,7 @@ def stream_research_pipeline(topic: str) -> Generator[Dict[str, Any], None, None
     }
 
     # Step 1 - Search Agent
-    logger.info(f"Step 1: Running Search Agent for topic '{topic}'")
+    logger.info(f"[Pipeline] Step 1: Running Search Agent for topic '{topic}'")
     yield {"event": "search_started", "data": {"stage": "searching"}}
 
     search_agent = build_search_agent()
@@ -41,33 +41,40 @@ def stream_research_pipeline(topic: str) -> Generator[Dict[str, Any], None, None
         "messages": [("user", f"Find recent, reliable and detailed information about: {topic}")]
     })
 
-    state["search_results"] = search_result["messages"][-1].content
+    search_text = search_result["messages"][-1].content
+    state["search_results"] = search_text
+    logger.info(f"[Pipeline] Search Agent completed. Total search context length: {len(search_text)} chars")
     yield {"event": "search_completed", "data": {"stage": "searching"}}
 
     # Step 2 - Reader Agent
-    logger.info("Step 2: Running Reader Agent to scrape webpage content")
+    logger.info("[Pipeline] Step 2: Running Reader Agent to scrape webpage content")
     yield {"event": "reader_started", "data": {"stage": "reading"}}
 
     reader_agent = build_reader_agent()
+    # Pass full search results to Reader Agent without artificial [:800] truncation
     reader_result = reader_agent.invoke({
         "messages": [("user",
             f"Based on the following search results about '{topic}', "
             f"pick the most relevant URL and scrape it for deeper content.\n\n"
-            f"Search Results:\n{state['search_results'][:800]}"
+            f"Search Results:\n{search_text}"
         )]
     })
 
-    state["scraped_content"] = reader_result["messages"][-1].content
+    scraped_text = reader_result["messages"][-1].content
+    state["scraped_content"] = scraped_text
+    logger.info(f"[Pipeline] Reader Agent completed. Scraped content length: {len(scraped_text)} chars")
     yield {"event": "reader_completed", "data": {"stage": "reading"}}
 
     # Step 3 - Writer Chain
-    logger.info("Step 3: Running Writer Chain to draft report")
+    logger.info("[Pipeline] Step 3: Running Writer Chain to draft report")
     yield {"event": "writer_started", "data": {"stage": "writing"}}
 
     research_combined = (
-        f"SEARCH RESULTS: \n {state['search_results']} \n\n"
-        f"DETAILED SCRAPED CONTENT: \n {state['scraped_content']}"
+        f"SEARCH RESULTS:\n{state['search_results']}\n\n"
+        f"DETAILED SCRAPED CONTENT:\n{state['scraped_content']}"
     )
+
+    logger.info(f"[Pipeline] Final context length sent to Writer: {len(research_combined)} chars")
 
     writer_result = writer_chain.invoke({
         "topic": topic,
@@ -75,10 +82,11 @@ def stream_research_pipeline(topic: str) -> Generator[Dict[str, Any], None, None
     })
 
     state["report"] = writer_result
+    logger.info(f"[Pipeline] Writer Chain completed. Drafted report length: {len(writer_result)} chars")
     yield {"event": "writer_completed", "data": {"stage": "writing"}}
 
     # Step 4 - Critic Chain
-    logger.info("Step 4: Running Critic Chain to review report")
+    logger.info("[Pipeline] Step 4: Running Critic Chain to review report")
     yield {"event": "critic_started", "data": {"stage": "checking"}}
 
     critic_result = critic_chain.invoke({
@@ -86,9 +94,10 @@ def stream_research_pipeline(topic: str) -> Generator[Dict[str, Any], None, None
     })
 
     state["feedback"] = critic_result
+    logger.info("[Pipeline] Critic Chain completed evaluation.")
     yield {"event": "critic_completed", "data": {"stage": "checking"}}
 
-    logger.info("Pipeline execution completed successfully.")
+    logger.info("[Pipeline] Pipeline execution completed successfully.")
     yield {"event": "finished", "data": state}
 
 

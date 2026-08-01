@@ -47,8 +47,8 @@ BACKOFF_FACTOR = 2.0
 PROVIDER_COOLDOWN_SEC = 300.0  # 5 minutes cooldown after repeated provider failures
 
 # Tavily Search Configuration
-TAVILY_MAX_RESULTS = 5
-SEARCH_SNIPPET_MAX_LEN = 300
+TAVILY_MAX_RESULTS = 6
+SEARCH_SNIPPET_MAX_LEN = 2500
 
 # Web Scraper Configuration
 SCRAPER_TIMEOUT = 8

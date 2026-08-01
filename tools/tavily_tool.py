@@ -26,16 +26,28 @@ def web_search(query: str) -> str:
         Formatted string containing search result titles, URLs, and text snippets.
     """
     if not tavily_client:
-        logger.error("TAVILY_API_KEY environment variable is not set.")
+        logger.error("[Tavily] TAVILY_API_KEY environment variable is not set.")
         return "Search failed: TAVILY_API_KEY is missing."
 
+    logger.info(f"[Tavily] Executing search query: '{query}'")
+
     try:
-        results = tavily_client.search(query=query, max_results=TAVILY_MAX_RESULTS) 
+        # Use advanced search depth for rich real-time context
+        results = tavily_client.search(
+            query=query,
+            max_results=TAVILY_MAX_RESULTS,
+            search_depth="advanced",
+        )
         
         raw_results = results.get("results", [])
+        logger.info(f"[Tavily] Raw results returned: {len(raw_results)}")
+
         if not raw_results:
-            logger.warning(f"No search results returned for query: {query}")
+            logger.warning(f"[Tavily] No search results returned for query: '{query}'")
             return "No relevant search results found."
+
+        urls_found = [r.get("url", "") for r in raw_results if r.get("url")]
+        logger.info(f"[Tavily] URLs retrieved: {urls_found}")
 
         out = []
         for r in raw_results:
@@ -44,7 +56,9 @@ def web_search(query: str) -> str:
             content = r.get("content", "")[:SEARCH_SNIPPET_MAX_LEN]
             out.append(f"Title: {title}\nURL: {url}\nSnippet: {content}")
 
-        return "\n----\n".join(out)
+        formatted_output = "\n----\n".join(out)
+        logger.info(f"[Tavily] Formatted search payload length: {len(formatted_output)} chars")
+        return formatted_output
     except Exception as e:
-        logger.error(f"Tavily search failed for query '{query}': {e}")
+        logger.error(f"[Tavily] Search failed for query '{query}': {e}")
         return f"Failed to execute web search: {str(e)}"
