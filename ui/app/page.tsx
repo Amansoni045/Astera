@@ -132,7 +132,7 @@ export default function WorkspacePage() {
               </motion.div>
             </div>
           ) : (
-            /* Active Research Stream & Conversation View */
+            /* Active Research Stream & Report View */
             <div className="flex-1 flex flex-col justify-between gap-6 min-h-[85vh]">
               {/* Chat Turn Stack & Reports */}
               <ChatContainer
@@ -158,16 +158,6 @@ export default function WorkspacePage() {
                   </button>
                 </div>
               )}
-
-              {/* Bottom Multi-Turn Follow-Up Input */}
-              <div className="sticky bottom-4 z-20 pt-4 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md">
-                <SearchInput
-                  onSubmit={handleSubmit}
-                  disabled={isStreaming}
-                  placeholder="Ask a follow-up question or start another research topic…"
-                  submitLabel="Send"
-                />
-              </div>
             </div>
           )}
         </div>

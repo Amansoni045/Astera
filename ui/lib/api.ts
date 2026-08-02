@@ -68,6 +68,7 @@ export function streamResearchTopic(
 ): () => void {
   const url = `${API_BASE}/research/stream?topic=${encodeURIComponent(topic)}`;
   let eventSource: EventSource | null = new EventSource(url);
+  let isFinished = false;
 
   const events = [
     "search_started",
@@ -86,22 +87,38 @@ export function streamResearchTopic(
     eventSource?.addEventListener(eventName, (e: MessageEvent) => {
       try {
         const parsed = JSON.parse(e.data);
+        if (eventName === "finished") {
+          isFinished = true;
+        }
         onEvent(eventName, parsed);
+        if (eventName === "finished" && eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
       } catch {
+        if (eventName === "finished") {
+          isFinished = true;
+        }
         onEvent(eventName, e.data);
+        if (eventName === "finished" && eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
       }
     });
   });
 
   eventSource.onerror = () => {
-    onError("Unable to connect to the backend research service. Please verify server status.");
-    if (eventSource) {
+    // Only fire error if stream closed unexpectedly before finished event
+    if (!isFinished && eventSource) {
+      onError("Unable to connect to the backend research service. Please verify server status.");
       eventSource.close();
       eventSource = null;
     }
   };
 
   return () => {
+    isFinished = true;
     if (eventSource) {
       eventSource.close();
       eventSource = null;
