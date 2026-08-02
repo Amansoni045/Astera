@@ -1,60 +1,60 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, X, RefreshCw } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { SearchInput } from "@/components/SearchInput";
-import { ResearchProgress } from "@/components/ResearchProgress";
-import { ReportView } from "@/components/ReportView";
-import { useResearch } from "@/hooks/useResearch";
-import { getHistory } from "@/lib/history";
-import type { HistoryEntry } from "@/lib/types";
+import { ChatContainer } from "@/components/chat/ChatContainer";
+import { SearchModal } from "@/components/SearchModal";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { SettingsModal } from "@/components/settings/SettingsModal";
+import { ShareModal } from "@/components/ShareModal";
+import { useConversation } from "@/hooks/useConversation";
 import { cn } from "@/lib/utils";
 
 export default function WorkspacePage() {
-  const { stage, completedStages, result, error, run, reset } = useResearch();
-  const [activeHistoryId, setActiveHistoryId] = useState<string | undefined>();
+  const { data: session } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<{ id: string; title: string } | null>(null);
   const [lastTopic, setLastTopic] = useState("");
 
-  useEffect(() => {
-    setEntries(getHistory());
-  }, []);
+  const {
+    isAuthenticated,
+    conversations,
+    localEntries,
+    activeConversationId,
+    activeLocalId,
+    turns,
+    stage,
+    completedStages,
+    error,
+    newResearch,
+    loadConversation,
+    selectLocalEntry,
+    executeResearchPrompt,
+    renameConversation,
+    pinConversation,
+    archiveConversation,
+    deleteConversation,
+    clearLocal,
+  } = useConversation();
 
-  const isIdle = stage === "idle";
-  const isActive = !isIdle && stage !== "done" && stage !== "error";
-  const isDone = stage === "done";
+  const isIdle = turns.length === 0;
+  const isStreaming = stage !== "idle" && stage !== "done" && stage !== "error";
   const isError = stage === "error";
 
   const handleSubmit = useCallback(
     (topic: string) => {
       setLastTopic(topic);
-      setActiveHistoryId(undefined);
-      setViewingHistory(false);
-      setHistoricalResult(null);
-      run(topic);
+      executeResearchPrompt(topic);
     },
-    [run],
+    [executeResearchPrompt],
   );
-
-  const [historicalResult, setHistoricalResult] = useState<HistoryEntry["result"] | null>(null);
-  const [viewingHistory, setViewingHistory] = useState(false);
-
-  const handleHistorySelect = useCallback((entry: HistoryEntry) => {
-    reset();
-    setActiveHistoryId(entry.id);
-    setHistoricalResult(entry.result);
-    setViewingHistory(true);
-  }, [reset]);
-
-  const handleNewResearch = useCallback(() => {
-    reset();
-    setViewingHistory(false);
-    setHistoricalResult(null);
-    setActiveHistoryId(undefined);
-  }, [reset]);
 
   const handleRetry = useCallback(() => {
     if (lastTopic) {
@@ -62,89 +62,87 @@ export default function WorkspacePage() {
     }
   }, [handleSubmit, lastTopic]);
 
-  const showReport = isDone && result;
-  const showHistory = viewingHistory && historicalResult;
-
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+    <div className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col">
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((v) => !v)}
-        onSelectEntry={handleHistorySelect}
-        onNewResearch={handleNewResearch}
-        entries={entries}
-        setEntries={setEntries}
-        activeTopicId={activeHistoryId}
+        onSelectConversation={loadConversation}
+        onSelectLocalEntry={selectLocalEntry}
+        onNewResearch={newResearch}
+        onOpenSearch={() => setIsSearchOpen(true)}
+        onOpenAuthModal={() => setIsAuthOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        conversations={conversations}
+        localEntries={localEntries}
+        activeConversationId={activeConversationId}
+        activeLocalId={activeLocalId}
+        isAuthenticated={isAuthenticated}
+        onRenameConversation={renameConversation}
+        onShareConversation={(id, title) => setShareTarget({ id, title })}
+        onPinConversation={pinConversation}
+        onArchiveConversation={archiveConversation}
+        onDeleteConversation={deleteConversation}
+        onClearLocalHistory={clearLocal}
       />
 
-      {/* Main workspace */}
+      {/* Main Workspace */}
       <main
         className={cn(
-          "min-h-screen transition-all duration-300 ease-in-out",
+          "flex-1 flex flex-col transition-all duration-300 ease-in-out",
           sidebarOpen ? "pl-0 md:pl-64" : "pl-0",
         )}
         id="main-content"
       >
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-          {/* Idle / home state */}
-          <AnimatePresence mode="wait">
-            {isIdle && !showHistory && (
+        <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex-1 flex flex-col">
+          {/* Idle / Landing View */}
+          {isIdle && (
+            <AnimatePresence mode="wait">
               <motion.div
                 key="home"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.4, ease: "easeOut" }}
-                className="flex flex-col items-center justify-center min-h-[60vh] gap-12"
+                className="flex flex-col items-center justify-center flex-1 my-auto gap-10 py-12"
               >
                 <div className="flex flex-col items-center gap-4 text-center max-w-lg">
                   <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                     Research anything.
                   </h1>
                   <p className="text-base text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Ask a question and Astera will search the web, read the sources, and write you a clear, structured report.
+                    Ask a question and Astera will search the web, read sources, and generate structured, comprehensive research reports.
                   </p>
                 </div>
+
                 <div className="w-full max-w-xl">
                   <SearchInput onSubmit={handleSubmit} autoFocus />
                   <p className="mt-3 text-center text-xs text-zinc-400 dark:text-zinc-600">
-                    Press <kbd className="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">Enter</kbd> to start
+                    Press <kbd className="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">Enter</kbd> to submit, <kbd className="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">Shift+Enter</kbd> for newline
                   </p>
                 </div>
               </motion.div>
-            )}
+            </AnimatePresence>
+          )}
 
-            {/* In-progress state using ResearchProgress component with real SSE events */}
-            {isActive && (
-              <motion.div
-                key="progress"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                className="flex flex-col gap-10"
-              >
-                <SearchInput onSubmit={handleSubmit} disabled />
-                <ResearchProgress stage={stage} completedStages={completedStages} />
-              </motion.div>
-            )}
+          {/* Active Conversation Feed */}
+          {!isIdle && (
+            <div className="flex-1 flex flex-col justify-between">
+              <ChatContainer
+                turns={turns}
+                activeStage={stage}
+                activeCompletedStages={completedStages}
+                onNewResearch={newResearch}
+                userName={session?.user?.name}
+                userImage={session?.user?.image}
+              />
 
-            {/* Error state — natural human language with Retry button */}
-            {isError && (
-              <motion.div
-                key="error"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="flex flex-col gap-8"
-              >
-                <SearchInput onSubmit={handleSubmit} />
-
+              {/* Error Banner */}
+              {isError && (
                 <div
                   role="alert"
-                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-5 shadow-sm"
+                  className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-4 shadow-sm"
                 >
                   <div className="flex items-start gap-3">
                     <AlertCircle
@@ -172,7 +170,7 @@ export default function WorkspacePage() {
                       </button>
                     )}
                     <button
-                      onClick={handleNewResearch}
+                      onClick={newResearch}
                       className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 focus-visible:outline-none rounded-lg"
                       aria-label="Dismiss error"
                     >
@@ -180,41 +178,50 @@ export default function WorkspacePage() {
                     </button>
                   </div>
                 </div>
-              </motion.div>
-            )}
+              )}
 
-            {/* Report state (live) */}
-            {showReport && !showHistory && (
-              <motion.div
-                key="report"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.35 }}
-                className="flex flex-col gap-8"
-              >
-                <SearchInput onSubmit={handleSubmit} />
-                <ReportView result={result} onNewResearch={handleNewResearch} />
-              </motion.div>
-            )}
-
-            {/* History report */}
-            {showHistory && historicalResult && (
-              <motion.div
-                key="history"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.35 }}
-                className="flex flex-col gap-8"
-              >
-                <SearchInput onSubmit={handleSubmit} />
-                <ReportView result={historicalResult} onNewResearch={handleNewResearch} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+              {/* Bottom Multi-Turn Follow-Up Input */}
+              <div className="sticky bottom-4 z-20 pt-4 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md">
+                <SearchInput
+                  onSubmit={handleSubmit}
+                  disabled={isStreaming}
+                  placeholder="Ask a follow-up question or start another research topic…"
+                  submitLabel="Send"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </main>
+
+      {/* Quick Search Modal (Cmd+K) */}
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        conversations={conversations}
+        localEntries={localEntries}
+        onSelectConversation={loadConversation}
+        onSelectLocalEntry={selectLocalEntry}
+        isAuthenticated={isAuthenticated}
+      />
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onRefreshConversations={newResearch}
+      />
+
+      {/* Public Share Link Modal */}
+      <ShareModal
+        isOpen={Boolean(shareTarget)}
+        onClose={() => setShareTarget(null)}
+        conversationId={shareTarget?.id}
+        conversationTitle={shareTarget?.title}
+      />
     </div>
   );
 }

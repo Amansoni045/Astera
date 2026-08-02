@@ -24,7 +24,7 @@ function extractScore(feedback: string): string | null {
 /**
  * Extracts all URLs found in any text, returning them as Source objects.
  */
-function extractSources(text: string): Source[] {
+export function extractSources(text: string): Source[] {
   const urlRegex = /https?:\/\/[^\s\),\"\']+/g;
   const seen = new Set<string>();
   const sources: Source[] = [];
