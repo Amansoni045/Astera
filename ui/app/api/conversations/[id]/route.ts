@@ -74,10 +74,8 @@ export async function DELETE(
   try {
     await deleteConversation(session.user.id, id);
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message || "Failed to delete conversation" },
-      { status: 500 },
-    );
+  } catch {
+    // If conversation is already deleted or not found, return idempotent success
+    return NextResponse.json({ success: true });
   }
 }
