@@ -3,80 +3,75 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Plus,
+  Search,
+  PanelLeft,
+  Pin,
   Clock,
   ChevronRight,
-  Trash2,
-  PanelLeftClose,
-  PanelLeft,
-  Sparkles,
-  Search,
-  Pin,
+  MoreVertical,
   Edit2,
+  Trash2,
   Share2,
-  Archive,
   Check,
   X,
-  MoreVertical,
-  Settings as SettingsIcon,
 } from "lucide-react";
-import type { ConversationSummary, HistoryEntry } from "@/lib/types";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import type { ConversationSummary, HistoryEntry as LocalSessionEntry } from "@/lib/types";
+import type { TabType } from "@/components/settings/SettingsModal";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
-  onSelectConversation: (id: string) => void;
-  onSelectLocalEntry: (entry: HistoryEntry) => void;
   onNewResearch: () => void;
   onOpenSearch: () => void;
   onOpenAuthModal: () => void;
-  onOpenSettings: () => void;
-  conversations: ConversationSummary[];
-  localEntries: HistoryEntry[];
-  activeConversationId?: string;
-  activeLocalId?: string;
+  onOpenSettings: (tab?: TabType) => void;
   isAuthenticated: boolean;
+  conversations: ConversationSummary[];
+  localEntries: LocalSessionEntry[];
+  activeConversationId?: string | null;
+  activeLocalId?: string | null;
+  onSelectConversation: (id: string) => void;
+  onSelectLocalEntry: (entry: LocalSessionEntry) => void;
   onRenameConversation?: (id: string, newTitle: string) => void;
-  onShareConversation?: (id: string, title: string) => void;
-  onPinConversation?: (id: string, isPinned: boolean) => void;
-  onArchiveConversation?: (id: string, isArchived: boolean) => void;
   onDeleteConversation?: (id: string) => void;
-  onClearLocalHistory?: () => void;
+  onPinConversation?: (id: string, pinned: boolean) => void;
+  onShareConversation?: (id: string, title: string) => void;
 }
 
 export function Sidebar({
   isOpen,
   onToggle,
-  onSelectConversation,
-  onSelectLocalEntry,
   onNewResearch,
   onOpenSearch,
   onOpenAuthModal,
   onOpenSettings,
+  isAuthenticated,
   conversations,
   localEntries,
   activeConversationId,
   activeLocalId,
-  isAuthenticated,
+  onSelectConversation,
+  onSelectLocalEntry,
   onRenameConversation,
-  onShareConversation,
-  onPinConversation,
-  onArchiveConversation,
   onDeleteConversation,
-  onClearLocalHistory,
+  onPinConversation,
+  onShareConversation,
 }: SidebarProps) {
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Group conversations into Date Buckets
   const groupConversationsByDate = (items: ConversationSummary[]) => {
-    const now = Date.now();
-    const DAY = 86_400_000;
-
     const pinned: ConversationSummary[] = [];
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+
     const groups: Record<string, ConversationSummary[]> = {
       Today: [],
       Yesterday: [],
@@ -138,10 +133,8 @@ export function Sidebar({
               "border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md",
               "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100",
               "hover:border-zinc-300 dark:hover:border-zinc-700 shadow-sm",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
             )}
             aria-label="Open sidebar"
-            title="Open sidebar"
           >
             <PanelLeft className="h-4 w-4" />
           </motion.button>
@@ -187,56 +180,43 @@ export function Sidebar({
                   <Search className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={onOpenSettings}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 transition-colors"
-                  title="Settings"
-                  aria-label="Settings"
-                >
-                  <SettingsIcon className="h-3.5 w-3.5" />
-                </button>
-                <button
                   onClick={onToggle}
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 transition-colors"
                   aria-label="Close sidebar"
-                  title="Close sidebar"
                 >
-                  <PanelLeftClose className="h-4 w-4" />
+                  <PanelLeft className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            {/* Action Bar */}
-            <div className="p-3 flex flex-col gap-2">
+            {/* New Research Button */}
+            <div className="p-3">
               <button
                 onClick={onNewResearch}
                 className={cn(
-                  "flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition-all duration-150",
+                  "flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-all duration-150 shadow-sm",
                   "border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900",
-                  "text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100",
-                  "hover:border-zinc-300 dark:hover:border-zinc-700 shadow-sm",
+                  "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/80",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
                 )}
               >
-                <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                <Plus className="h-4 w-4 text-indigo-500" />
                 <span>New Research</span>
               </button>
             </div>
 
-            {/* Main History / Research Feed */}
-            <div className="flex-1 overflow-y-auto px-2 pb-4">
+            {/* Research List */}
+            <div className="flex-1 overflow-y-auto px-3 py-1 space-y-4">
               {isAuthenticated ? (
                 conversations.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-2 py-16 text-center px-4">
                     <Clock className="h-5 w-5 text-zinc-300 dark:text-zinc-700" />
-                    <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      No research yet.
-                    </p>
-                    <p className="text-[11px] text-zinc-400 dark:text-zinc-600">
-                      Start by asking your first question.
+                    <p className="text-xs font-medium text-zinc-400 dark:text-zinc-600">
+                      No research yet. Start by asking your first question.
                     </p>
                   </div>
                 ) : (
-                  <nav className="space-y-4 pt-1">
+                  <nav className="space-y-4" aria-label="Saved conversations">
                     {/* Pinned Section */}
                     {pinned.length > 0 && (
                       <div>
@@ -268,15 +248,12 @@ export function Sidebar({
               ) : localEntries.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-16 text-center px-4">
                   <Clock className="h-5 w-5 text-zinc-300 dark:text-zinc-700" />
-                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    No research yet.
-                  </p>
-                  <p className="text-[11px] text-zinc-400 dark:text-zinc-600">
-                    Start by asking your first question.
+                  <p className="text-xs font-medium text-zinc-400 dark:text-zinc-600">
+                    No research yet. Start by asking your first question.
                   </p>
                 </div>
               ) : (
-                <nav className="space-y-4 pt-1">
+                <nav className="space-y-2" aria-label="Session entries">
                   <div>
                     <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
                       Recent Session
@@ -306,9 +283,9 @@ export function Sidebar({
               )}
             </div>
 
-            {/* Footer with User Auth status & Settings */}
+            {/* Footer with User Auth status & Profile Menu */}
             <div className="border-t border-zinc-200/60 dark:border-zinc-800/60 p-3 flex flex-col gap-2">
-              <UserMenu onOpenAuthModal={onOpenAuthModal} />
+              <UserMenu onOpenAuthModal={onOpenAuthModal} onOpenSettings={onOpenSettings} />
             </div>
           </motion.aside>
         )}
@@ -333,19 +310,19 @@ export function Sidebar({
   );
 
   function renderConversationItem(item: ConversationSummary) {
+    const isActive = activeConversationId === item.id;
     const isEditing = editingId === item.id;
     const isMenuOpen = menuOpenId === item.id;
-    const isActive = activeConversationId === item.id;
 
     return (
       <li key={item.id} className="relative group">
         {isEditing ? (
-          <div className="flex items-center gap-1 px-2 py-1 bg-white dark:bg-zinc-900 border border-indigo-500 rounded-lg">
+          <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 bg-zinc-200/80 dark:bg-zinc-800/80">
             <input
               type="text"
-              autoFocus
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
+              autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSaveRename(item.id);
                 if (e.key === "Escape") setEditingId(null);

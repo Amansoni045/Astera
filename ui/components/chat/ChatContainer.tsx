@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { MessageBubble } from "./MessageBubble";
 import { ReportView } from "@/components/ReportView";
 import { ResearchProgress } from "@/components/ResearchProgress";
-import type { Message, PipelineStage, ResearchResult } from "@/lib/types";
+import type { PipelineStage, ResearchResult } from "@/lib/types";
 
 export interface ChatTurn {
   id: string;
@@ -16,8 +16,11 @@ export interface ChatTurn {
 
 interface ChatContainerProps {
   turns: ChatTurn[];
+  currentStage?: PipelineStage;
   activeStage?: PipelineStage;
+  completedStages?: Set<string>;
   activeCompletedStages?: Set<string>;
+  isStreaming?: boolean;
   onNewResearch?: () => void;
   userName?: string | null;
   userImage?: string | null;
@@ -25,17 +28,21 @@ interface ChatContainerProps {
 
 export function ChatContainer({
   turns,
+  currentStage,
   activeStage = "idle",
-  activeCompletedStages = new Set(),
+  completedStages,
+  activeCompletedStages,
   onNewResearch,
   userName,
   userImage,
 }: ChatContainerProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const stageToUse = currentStage || activeStage;
+  const stagesToUse = completedStages || activeCompletedStages || new Set();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [turns, activeStage]);
+  }, [turns, stageToUse]);
 
   return (
     <div className="flex w-full flex-col gap-10 pb-12">
@@ -52,7 +59,7 @@ export function ChatContainer({
           {/* Assistant Turn: Streaming state or Completed Report */}
           {turn.isStreaming ? (
             <div className="py-4">
-              <ResearchProgress stage={activeStage} completedStages={activeCompletedStages} />
+              <ResearchProgress stage={stageToUse} completedStages={stagesToUse} />
             </div>
           ) : turn.result ? (
             <div className="py-2">

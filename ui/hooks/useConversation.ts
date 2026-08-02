@@ -138,7 +138,40 @@ export function useConversation() {
         isStreaming: true,
       };
 
+      // Instantly append turn to main workspace
       setTurns((prev) => [...prev, newTurn]);
+
+      // OPTIMISTIC SIDEBAR CREATION (FLOW 2)
+      let currentActiveId = activeConversationId;
+      let currentLocalId = activeLocalId;
+
+      if (!isAuthenticated && !currentLocalId) {
+        const tempLocalId = `session-${Date.now()}`;
+        const newLocalEntry: HistoryEntry = {
+          id: tempLocalId,
+          topic: prompt,
+          timestamp: Date.now(),
+          result: null as unknown as ResearchResult,
+        };
+        setLocalEntries((prev) => [newLocalEntry, ...prev]);
+        setActiveLocalId(tempLocalId);
+        currentLocalId = tempLocalId;
+      } else if (isAuthenticated && !currentActiveId) {
+        const tempConvId = `temp-${Date.now()}`;
+        const newConvSummary: ConversationSummary = {
+          id: tempConvId,
+          userId: session?.user?.id || "temp-user",
+          title: prompt,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isPinned: false,
+          isArchived: false,
+          messageCount: 1,
+        };
+        setConversations((prev) => [newConvSummary, ...prev]);
+        setActiveConversationId(tempConvId);
+        currentActiveId = tempConvId;
+      }
 
       const closeStream = streamResearchTopic(
         prompt,
@@ -186,9 +219,13 @@ export function useConversation() {
               // Auto-save: Authenticated vs Anonymous
               if (isAuthenticated) {
                 try {
-                  if (activeConversationId) {
+                  const targetId = currentActiveId && !currentActiveId.startsWith("temp-")
+                    ? currentActiveId
+                    : null;
+
+                  if (targetId) {
                     // Follow-up prompt in existing conversation
-                    await fetch(`/api/conversations/${activeConversationId}/messages`, {
+                    await fetch(`/api/conversations/${targetId}/messages`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ prompt, result: resultPayload }),
@@ -210,9 +247,9 @@ export function useConversation() {
                   // Fallback
                 }
               } else {
-                // Anonymous: local storage save
+                // Anonymous: session storage save
                 const entry: HistoryEntry = {
-                  id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                  id: currentLocalId || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                   topic: prompt,
                   timestamp: Date.now(),
                   result: resultPayload,
@@ -225,18 +262,26 @@ export function useConversation() {
             case "error":
               setStage("error");
               setError("We couldn't complete this research right now. Please try again in a few moments.");
-              setTurns((prev) => prev.filter((t) => t.id !== turnId));
+              setTurns((prev) =>
+                prev.map((t) =>
+                  t.id === turnId ? { ...t, isStreaming: false } : t,
+                ),
+              );
               break;
           }
         },
         (errMsg) => {
           setStage("error");
           setError(errMsg || "We couldn't complete this research right now.");
-          setTurns((prev) => prev.filter((t) => t.id !== turnId));
+          setTurns((prev) =>
+            prev.map((t) =>
+              t.id === turnId ? { ...t, isStreaming: false } : t,
+            ),
+          );
         },
       );
     },
-    [activeConversationId, isAuthenticated, fetchConversations],
+    [activeConversationId, activeLocalId, isAuthenticated, fetchConversations],
   );
 
   // Rename conversation
@@ -244,6 +289,9 @@ export function useConversation() {
     async (id: string, newTitle: string) => {
       if (!isAuthenticated) return;
       try {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c)),
+        );
         const res = await fetch(`/api/conversations/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -264,6 +312,9 @@ export function useConversation() {
     async (id: string, isPinned: boolean) => {
       if (!isAuthenticated) return;
       try {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, isPinned } : c)),
+        );
         const res = await fetch(`/api/conversations/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -284,6 +335,9 @@ export function useConversation() {
     async (id: string, isArchived: boolean) => {
       if (!isAuthenticated) return;
       try {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, isArchived } : c)),
+        );
         const res = await fetch(`/api/conversations/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -299,18 +353,21 @@ export function useConversation() {
     [isAuthenticated, fetchConversations],
   );
 
-  // Delete conversation
+  // Delete conversation (Flow 4: Optimistic deletion)
   const deleteConversation = useCallback(
     async (id: string) => {
       if (!isAuthenticated) return;
       try {
+        // Optimistic UI update
+        setConversations((prev) => prev.filter((c) => c.id !== id));
+        if (activeConversationId === id) {
+          newResearch();
+        }
+
         const res = await fetch(`/api/conversations/${id}`, {
           method: "DELETE",
         });
         if (res.ok) {
-          if (activeConversationId === id) {
-            newResearch();
-          }
           fetchConversations();
         }
       } catch {

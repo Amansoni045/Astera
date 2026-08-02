@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession, signOut } from "next-auth/react";
+import { useTheme } from "next-themes";
 import {
   X,
   Settings as SettingsIcon,
@@ -15,7 +16,6 @@ import {
   Download,
   Trash2,
   ExternalLink,
-  Shield,
   LogOut,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -24,19 +24,21 @@ import { cn } from "@/lib/utils";
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: TabType;
   onRefreshConversations?: () => void;
 }
 
-type TabType = "general" | "account" | "data" | "about";
+export type TabType = "general" | "account" | "data" | "about";
 
 export function SettingsModal({
   isOpen,
   onClose,
+  initialTab = "general",
   onRefreshConversations,
 }: SettingsModalProps) {
   const { data: session } = useSession();
-  const [activeTab, setActiveTab] = useState<TabType>("general");
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
+  const { theme, setTheme } = useTheme();
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -163,13 +165,13 @@ export function SettingsModal({
                       General Settings
                     </h3>
                     <p className="text-xs text-zinc-400 mt-0.5">
-                      Customize app appearance and preferences.
+                      Customize app appearance and system theme mode.
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-3">
                     <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                      Theme
+                      Theme Mode
                     </label>
                     <div className="grid grid-cols-3 gap-2.5">
                       <button
@@ -245,6 +247,9 @@ export function SettingsModal({
                             {session.user.name || "Authenticated User"}
                           </p>
                           <p className="text-xs text-zinc-400 truncate">{session.user.email}</p>
+                          <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                            Google Connected
+                          </span>
                         </div>
                       </div>
 
@@ -296,25 +301,27 @@ export function SettingsModal({
                       </button>
                     </div>
 
-                    {/* Delete All Conversations */}
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-rose-200/80 dark:border-rose-900/60 p-4 bg-rose-50/30 dark:bg-rose-950/10">
-                      <div>
-                        <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
-                          Delete All Conversations
-                        </p>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">
-                          Permanently delete all research history associated with your account.
-                        </p>
+                    {/* Delete All Conversations (Shown ONLY to authenticated users) */}
+                    {session?.user && (
+                      <div className="flex items-center justify-between gap-4 rounded-xl border border-rose-200/80 dark:border-rose-900/60 p-4 bg-rose-50/30 dark:bg-rose-950/10">
+                        <div>
+                          <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                            Delete All Conversations
+                          </p>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            Permanently delete all research history associated with your account.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setIsDeleteConfirmOpen(true)}
+                          disabled={isDeleting}
+                          className="flex items-center gap-1.5 rounded-lg bg-rose-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-rose-700 transition-colors disabled:opacity-40"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Delete All</span>
+                        </button>
                       </div>
-                      <button
-                        onClick={() => setIsDeleteConfirmOpen(true)}
-                        disabled={!session?.user || isDeleting}
-                        className="flex items-center gap-1.5 rounded-lg bg-rose-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-rose-700 transition-colors disabled:opacity-40"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>Delete All</span>
-                      </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -341,7 +348,7 @@ export function SettingsModal({
 
                   <div className="flex items-center gap-3 pt-2">
                     <a
-                      href="https://github me/amansoni/Astera"
+                      href="https://github.com/amansoni/Astera"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
